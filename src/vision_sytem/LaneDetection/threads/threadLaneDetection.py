@@ -36,7 +36,7 @@ class threadLaneDetection(ThreadWithStop):
 #=======================================================PROCESS IMAGE=================================================================###
 
 
-    def gamma_correction(image, gamma=2.0):
+    def gamma_correction(self, image, gamma=2.0):
         # Build a lookup table mapping pixel values [0, 255] to their gamma-corrected values
         inv_gamma = 1.0 / gamma
         table = np.array([(i / 255.0) ** inv_gamma * 255 for i in range(256)]).astype("uint8")
@@ -156,12 +156,14 @@ class threadLaneDetection(ThreadWithStop):
             #TO DO:calibrate camera
             imageRecv = self.imageSubscriber.receive()
             if imageRecv is not None:
-                img_data = base64.b64decode(imageRecv["msgValue"])
+                
+                img_data = base64.b64decode(imageRecv)
                 img = np.frombuffer(img_data, dtype=np.uint8)
                 image = cv2.imdecode(img, cv2.IMREAD_COLOR)
                 combo_image=np.copy(image)
-                lane_image=np.copy(image)
-                lane_image=self.gamma_correction(lane_image)
+                lane_imag=np.copy(image)
+                print(type(lane_imag),lane_imag.shape)
+                lane_image=self.gamma_correction(lane_imag)
                 lines=self.detect_lines(lane_image)
                 average_lines=self.average_slope_intersect(lines)
                 steering_angle=self.get_steering_angle(average_lines)

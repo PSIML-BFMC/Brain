@@ -43,7 +43,7 @@ from src.utils.messages.allMessages import (
 from src.utils.messages.messageHandlerSender import messageHandlerSender
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
 from src.templates.threadwithstop import ThreadWithStop
-from processGateway import Record, Brightness, Contrast
+
 
 
 class threadCamera(ThreadWithStop):

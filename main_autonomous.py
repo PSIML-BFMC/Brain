@@ -14,7 +14,7 @@ from src.gateway.processGateway import processGateway
 from src.hardware.camera.processCamera import processCamera
 from src.hardware.serialhandler.processSerialHandler import processSerialHandler
 from src.utils.ipManager.IpReplacement import IPManager
-from src.vision_sytem.LaneDetection import processLaneDetection
+from src.vision_sytem.LaneDetection.processLaneDetection import processLaneDetection
 # ------ New component imports starts here ------#
 
 # ------ New component imports ends here ------#
@@ -34,6 +34,8 @@ Camera = True
 SerialHandler = True
 LaneDeteciton = True
 
+processGateway = processGateway(queueList, logging)
+processGateway.start()
 
 
 # Initializing camera
@@ -49,7 +51,7 @@ if SerialHandler:
     allProcesses.append(processSerialHandler)
 
 if LaneDeteciton:
-    processLaneDetection=processLaneDetection(queueList,logging,debugging=False)
+    processLaneDetection=processLaneDetection(queueList, logging, debugging=False)
     allProcesses.append(processLaneDetection)
 
 # ===================================== START PROCESSES ==================================
