@@ -11,7 +11,8 @@ from src.utils.messages.messageHandlerSender import messageHandlerSender
 
 from src.utils.messages.allMessages import (
     mainCamera,
-    LaneKeeping
+    LaneKeeping,
+    HorizontalLine
 )
 
 
@@ -30,7 +31,7 @@ class threadLaneDetection(ThreadWithStop):
 
 
         self.laneKeepingSender = messageHandlerSender(self.queuesList, LaneKeeping)
-
+        self.horizontalLineSender = messageHandlerSender(self.queuesList,HorizontalLine)
         self.subscribe()
 
 #=======================================================PROCESS IMAGE=================================================================###
@@ -97,6 +98,9 @@ class threadLaneDetection(ThreadWithStop):
             right_fit_average=np.average(right_fit,axis=0)
             horizontal_fit_average=np.average(horizontal_fit,axis=0)
             #print(horizontal_fit_average,' horizontal fit average')
+
+            if (horizontal_fit_average is not None):
+                self.horizontalLineSender.send(True)
 
             left_line=self.make_coordinates(left_fit_average)
             right_line=self.make_coordinates(right_fit_average)

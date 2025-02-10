@@ -1,4 +1,5 @@
 
+import time 
 class PIDController:
     """this class implements a PID controller for lane following"""
     def __init__(self, Kp=1, Ki=0, Kd=0, setangle=90):
@@ -8,8 +9,11 @@ class PIDController:
         self.setangle = setangle
         self.previous_error = 0
         self.integral = 0
+        self.previous_time=time.time()
 
-def compute(self, steering_angle, dt):
+
+def compute(self, steering_angle):
+        dt=time.time() - self.previous_time
         error = steering_angle - self.setangle
     
         P_out = self.Kp * error
@@ -21,7 +25,14 @@ def compute(self, steering_angle, dt):
         D_out = self.Kd * derivative
         
         output = P_out + I_out + D_out
+        if output>21:
+             output=21
+        elif output<-21:
+             output=-21
         self.previous_error = error
+
+        print('output from the pid is: ',output)
+        self.previous_time=time.time()
         
         return output
 

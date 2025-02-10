@@ -41,7 +41,11 @@ from src.utils.messages.allMessages import (
     ToggleBatteryLvl,
     ToggleImuData,
     ToggleInstant,
-    ToggleResourceMonitor
+    ToggleResourceMonitor,
+    SpeedMotor_c,
+    SteerMotor_c,
+    Brake_c,
+    Klem_c,
 )
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
 from src.utils.messages.messageHandlerSender import messageHandlerSender
@@ -96,6 +100,11 @@ class threadWrite(ThreadWithStop):
         self.resourceMonitorSubscriber = messageHandlerSubscriber(self.queuesList, ToggleResourceMonitor, "lastOnly", True)
         self.imuSubscriber = messageHandlerSubscriber(self.queuesList, ToggleImuData, "lastOnly", True)
 
+        self.klSubscriber_c = messageHandlerSubscriber(self.queuesList, Klem_c, "lastOnly", True)
+        self.steerMotorSubscriber_c = messageHandlerSubscriber(self.queuesList, SteerMotor_c, "lastOnly", True)
+        self.speedMotorSubscriber_c = messageHandlerSubscriber(self.queuesList, SpeedMotor_c, "lastOnly", True)
+        self.brakeSubscriber_c = messageHandlerSubscriber(self.queuesList, Brake_c, "lastOnly", True)
+
     # ==================================== SENDING =======================================
 
     def sendToSerial(self, msg):
@@ -135,7 +144,7 @@ class threadWrite(ThreadWithStop):
 
         while self._running:
             try:
-                klRecv = self.klSubscriber.receive()
+                klRecv = self.klSubscriber_c.receive()
                 if klRecv is not None:
                     if self.debugger:
                         self.logger.info(klRecv)
@@ -159,21 +168,24 @@ class threadWrite(ThreadWithStop):
 
                 if self.running:
                     if self.engineEnabled:
-                        brakeRecv = self.brakeSubscriber.receive()
+                        brakeRecv = self.brakeSubscriber_c.receive()
                         if brakeRecv is not None:
                             if self.debugger:
                                 self.logger.info(brakeRecv)
-                            command = {"action": "brake", "steerAngle": int(brakeRecv)}
-                            self.sendToSerial(command)
+                                command = {"action": "kl", "mode": 0}
+                                self.sendToSerial(command)
+                                time.sleep(2)
+                            #command = {"action": "brake", "steerAngle": int(brakeRecv)}
+                            #self.sendToSerial(command)
 
-                        speedRecv = self.speedMotorSubscriber.receive()
+                        speedRecv = self.speedMotorSubscriber_c.receive()
                         if speedRecv is not None: 
                             if self.debugger:
                                 self.logger.info(speedRecv)
                             command = {"action": "speed", "speed": int(speedRecv)}
                             self.sendToSerial(command)
 
-                        steerRecv = self.steerMotorSubscriber.receive()
+                        steerRecv = self.steerMotorSubscriber_c.receive()
                         if steerRecv is not None:
                             if self.debugger:
                                 self.logger.info(steerRecv) 

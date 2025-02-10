@@ -101,7 +101,7 @@ class threadGateway(ThreadWithStop):
         Id = message["msgID"]
         Type = message["msgType"]
         Value = message["msgValue"]
-        if (Owner, Id) in self.messageApproved:
+        if (Owner, Id) in self.messageApproved: #zbog ovoga nije hteo da radi onaj example
             for element in self.sendingList[Owner][Id]:
                 # We send a dictionary that contain the type of the message and message
                 self.sendingList[Owner][Id][element].send(
