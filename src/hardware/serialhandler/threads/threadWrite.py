@@ -146,10 +146,12 @@ class threadWrite(ThreadWithStop):
             try:
                 klRecv = self.klSubscriber_c.receive()
                 if klRecv is not None:
+                    print(klRecv, ' kl recv')
                     if self.debugger:
                         self.logger.info(klRecv)
                     if klRecv == "30":
                         self.running = True
+                        print("primio naredbu!!!!!!!!!!11")
                         self.engineEnabled = True
                         command = {"action": "kl", "mode": 30}
                         self.sendToSerial(command)

@@ -59,7 +59,7 @@ class LaneKeeping(Enum):
     Queue = "General"
     Owner = "threadLaneDetection"
     msgID = 1
-    msgType = "int" #steering angle is sent!!!
+    msgType = "float" #steering angle is sent!!!
 
 class HorizontalLine(Enum):
     Queue = "Warning"
@@ -263,27 +263,29 @@ class RecognisedSign(Enum):
 
 ##################### From procesControl #####################################
 
-class SpeedMotor_c(Enum):
-    Queue = "General"
+class Klem_c(Enum):
+    Queue = "Critical"
     Owner = "threadControl"
     msgID = 1
     msgType = "str"
 
-class SteerMotor_c(Enum):
-    Queue = "General"
+class SpeedMotor_c(Enum):
+    Queue = "Critical"
     Owner = "threadControl"
     msgID = 2
     msgType = "str"
 
-class Brake_c(Enum):
-    Queue = "General"
+class SteerMotor_c(Enum):
+    Queue = "Critical"
     Owner = "threadControl"
     msgID = 3
-    msgType = "float"
+    msgType = "str"
 
-class Klem_c(Enum):
-    Queue = "General"
+class Brake_c(Enum):
+    Queue = "Critical"
     Owner = "threadControl"
     msgID = 4
-    msgType = "str"
+    msgType = "float"
+
+
 

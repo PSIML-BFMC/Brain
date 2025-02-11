@@ -1,7 +1,7 @@
 from src.templates.threadwithstop import ThreadWithStop
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
 from src.utils.messages.messageHandlerSender import messageHandlerSender
-from PIDController import PIDController
+from src.control.PIDController import PIDController
 import time
 
 from src.utils.messages.allMessages import (
@@ -24,7 +24,7 @@ class threadControl(ThreadWithStop):
         self.queuesList = queueList
         self.logging = logging
         self.debugging = debugging
-        PID=PIDController()
+        self.PID=PIDController()
         self.subscribe()
         super(threadControl, self).__init__()
 
@@ -32,23 +32,40 @@ class threadControl(ThreadWithStop):
         self.SteerMotorSender_c=messageHandlerSender(self.queuesList,SteerMotor_c)
         self.Brake_c=messageHandlerSender(self.queuesList,Brake_c)
         self.Klem_c=messageHandlerSender(self.queuesList,Klem_c)
+        self.Klem_c.send("30")
 
     def run(self):
         start_time=time.time()
-        self.Klem_c.send(30)
-        self.SpeedMotorSender_c.send(100)
+        for i in range(30):
+            self.Klem_c.send("30")
+        print("sent to the motors")
+        print('aaa')
+        print("saaaaaaaaasaaa")
+        print('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA')
+        self.SpeedMotorSender_c.send(str(100))
         while self._running:
+            self.SpeedMotorSender_c.send(str(100))
+           # print('u procesu control.....')
             steeringangleRecv = self.LaneKeepingSubscriber.receive()
             if steeringangleRecv is not None:
-                steeringangle=self.PID.compute(steeringangleRecv)
+               # print(steeringangleRecv,' received steering angle')
+               # print(steeringangleRecv,' received steering angle')
+               # print(steeringangleRecv,' received steering angle')
+                steeringangle=int(round(self.PID.compute(steeringangleRecv)))
                 if (steeringangle>10 or steeringangle<-10):
-                    self.SteerMotorSender_c.send(steeringangle*10)
-            time_=time.time()-start_time()
+                    self.SteerMotorSender_c.send(str(-1*steeringangle*10))
+                    self.SteerMotorSender_c.send(str(-1*steeringangle*10))
+                    self.SteerMotorSender_c.send(str(-1*steeringangle*10))
+                    self.SteerMotorSender_c.send(str(-1*steeringangle*10))
+                    self.SteerMotorSender_c.send(str(-1*steeringangle*10))
+                    self.SteerMotorSender_c.send(str(-1*steeringangle*10))
+                    self.SteerMotorSender_c.send(str(-1*steeringangle*10))
+            time_=time.time()-start_time
             if (time_)>10:
                 break
 
-        self.Klem_c.send(0)
-        self.Klem_c.send(0)
+        self.Klem_c.send("0")
+        self.Klem_c.send("0")
 
     def subscribe(self):
         """Subscribes to the messages you are interested in"""
@@ -61,6 +78,7 @@ class threadControl(ThreadWithStop):
 
     def stop(self):
         """This function will close the thread and will stop the car."""
-        self.Klem_c.send(0)
+        for i in range(5):
+            self.Klem_c.send("0")
         time.sleep(2)
         super(threadControl, self).stop()

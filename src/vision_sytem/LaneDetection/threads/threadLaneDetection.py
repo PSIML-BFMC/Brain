@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from src.templates.threadwithstop import ThreadWithStop
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
 from src.utils.messages.messageHandlerSender import messageHandlerSender
-
+from src.control.PIDController import PIDController
 from src.utils.messages.allMessages import (
     mainCamera,
     LaneKeeping,
@@ -26,7 +26,7 @@ class threadLaneDetection(ThreadWithStop):
         self.debugging = debugging
         self.width = 640
         self.height = 480
-
+        self.PID=PIDController()
         ##TO DO:add camera calibration parameters
 
 
@@ -85,9 +85,9 @@ class threadLaneDetection(ThreadWithStop):
                 slope=parameters[0]
                 #print(slope,' slope')
                 intersect=parameters[1]
-                if slope<-0.1:
+                if slope<-0.2:
                     left_fit.append((slope,intersect)) #vodi racuna o tome kako su koordinate slike postavljene!!!!!
-                elif slope>0.1:
+                elif slope>0.2:
                     right_fit.append((slope,intersect))
                 else:
                     horizontal_fit.append((slope,intersect))
@@ -166,11 +166,14 @@ class threadLaneDetection(ThreadWithStop):
                 image = cv2.imdecode(img, cv2.IMREAD_COLOR)
                 combo_image=np.copy(image)
                 lane_imag=np.copy(image)
-                print(type(lane_imag),lane_imag.shape)
+              #  print(type(lane_imag),lane_imag.shape)
                 lane_image=self.gamma_correction(lane_imag)
                 lines=self.detect_lines(lane_image)
                 average_lines=self.average_slope_intersect(lines)
                 steering_angle=self.get_steering_angle(average_lines)
+                print(steering_angle,' sent steering angle')
+               # steering_angle_out=round(self.PID.compute(steering_angle))
+               # print(steering_angle_out)
                 self.laneKeepingSender.send(steering_angle)
                 if (average_lines is not None):
                     line_image=self.display_lines(lane_image,average_lines)

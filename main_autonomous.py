@@ -45,11 +45,9 @@ if Camera:
     processCamera = processCamera(queueList, logging , debugging = False)
     allProcesses.append(processCamera)
 
-
-
 # Initializing serial connection NUCLEO - > PI
 if SerialHandler:
-    processSerialHandler = processSerialHandler(queueList, logging, debugging = True)
+    processSerialHandler = processSerialHandler(queueList, logging, debugging = False)
     allProcesses.append(processSerialHandler)
 
 if LaneDeteciton:
@@ -59,6 +57,7 @@ if LaneDeteciton:
 if Control:
     processControl=processControl(queueList,logging,debugging=False)
     allProcesses.append(processControl)
+
 
 # ===================================== START PROCESSES ==================================
 for process in allProcesses:
@@ -76,5 +75,6 @@ except KeyboardInterrupt:
         proc.stop()
 
 processGateway.stop()
+
 
 #napravi ocitavanje za battery level npr koristeci se nekim dugmetomm sa tastature
