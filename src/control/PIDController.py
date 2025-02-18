@@ -2,7 +2,7 @@
 import time 
 class PIDController:
     """this class implements a PID controller for lane following"""
-    def __init__(self, Kp=1, Ki=0, Kd=0, setangle=90):
+    def __init__(self, Kp=0.9, Ki=0, Kd=0.01, setangle=90):
         self.Kp = Kp
         self.Ki = Ki
         self.Kd = Kd
@@ -31,7 +31,7 @@ class PIDController:
                output=-21
           self.previous_error = error
 
-          print('output from the pid is: ',output)
+         # print('output from the pid is: ',output)
           self.previous_time=time.time()
           
           return output

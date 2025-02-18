@@ -31,6 +31,7 @@ import threading
 import base64
 import picamera2
 import time
+import numpy as np
 
 from src.utils.messages.allMessages import (
     mainCamera,
@@ -44,6 +45,7 @@ from src.utils.messages.messageHandlerSender import messageHandlerSender
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
 from src.templates.threadwithstop import ThreadWithStop
 
+from ncnn_preprocess import ncnn_inference, draw_detections 
 
 
 class threadCamera(ThreadWithStop):
@@ -60,8 +62,8 @@ class threadCamera(ThreadWithStop):
         self.queuesList = queuesList
         self.logger = logger
         self.debugger = debugger
-        self.frame_rate = 10
-        #self.frame_rate = 5
+        #self.frame_rate = 10
+        self.frame_rate = 5
         self.recording = False
 
         self.video_writer = ""
@@ -106,7 +108,8 @@ class threadCamera(ThreadWithStop):
                 {
                     "AeEnable": False,
                     "AwbEnable": False,
-                    "Brightness": max(0.0, min(1.0, float(message))),
+                   # "Brightness": max(0.0, min(1.0, float(message))),
+                    "Brightness": 0.5,
                 }
             )
         if self.contrastSubscriber.isDataInPipe():
@@ -121,6 +124,13 @@ class threadCamera(ThreadWithStop):
                 }
             )
         threading.Timer(1, self.Configs).start()
+
+    def gamma_correction(self, image, gamma=2.0):
+        # Build a lookup table mapping pixel values [0, 255] to their gamma-corrected values
+        inv_gamma = 1.0 / gamma
+        table = np.array([(i / 255.0) ** inv_gamma * 255 for i in range(256)]).astype("uint8")
+        # Apply gamma correction using the lookup table
+        return cv2.LUT(image, table)
 
     # ================================ RUN ================================================
     def run(self):
@@ -156,6 +166,14 @@ class threadCamera(ThreadWithStop):
 
                 serialRequest = cv2.cvtColor(serialRequest, cv2.COLOR_YUV2BGR_I420)
 
+                # Start of Sign Detection
+                top_right_crop = self.gamma_correction(serialRequest[0:320, 640 - 320:])
+                outputs = ncnn_inference(top_right_crop, conf=0.5)
+               
+                detection_frame = draw_detections(top_right_crop, outputs)
+                serialRequest[0:320, 640 - 320:] = detection_frame
+                # End of Sign Detection
+
                 _, mainEncodedImg = cv2.imencode(".jpg", mainRequest)                   
                 _, serialEncodedImg = cv2.imencode(".jpg", serialRequest)
 
@@ -181,28 +199,9 @@ class threadCamera(ThreadWithStop):
             queue=False,
            # main={"format": "RGB888", "size": (2048, 1080)},
             main={"format": "RGB888", "size": (640, 480)},
-            lores={"size": (512, 270)},
+            lores={"size": (640, 480)}, #512, 270
             encode="lores",
         )
         self.camera.configure(config)
         self.camera.start()
 
-
-"""
-init_camera:
-    ->funkcija koja inicijalizuje kameru, tako da ima dva kanala, jedan manje rezolucije drugi vece
-    ->takodje, ima encode="lores", prenosi se slika manje rezolucije!!!
-Queue_Sending:
-    self.recordingSender.send(self.recording)
-    threading.Timer(1, self.Queue_Sending).start()
-    ->neka cudna funkcija za snimanje
-    ->In summary, this line sets up a recurring call to the Queue_Sending method every second.
-Configs:
-    ->funkcija koja se poziva kada se promeni brightness ili contrast, to se menja u aplikaciji!!!
-run:
-    -> ukljucje se snimanje ako se da znak iz aplikacije
-    -> ako je ukljuceno snimanje, snima se slika vece rezolucije
-    -> salju se slike na mainCameraSender i serialCameraSender
-    -> BITNO: moguce da performanse zavise od toga koji tacno format se salje i to, iz nekog razloga se pretvori
-       u dobar format za cv2, pa se encoduje u jpg, pa se onda salje, moguce da je to nepotrebno? -proveri ovo nekada
-"""

@@ -85,35 +85,39 @@ class threadLaneDetection(ThreadWithStop):
                 slope=parameters[0]
                 #print(slope,' slope')
                 intersect=parameters[1]
-                if slope<-0.2:
+                if slope<-0.1:
                     left_fit.append((slope,intersect)) #vodi racuna o tome kako su koordinate slike postavljene!!!!!
-                elif slope>0.2:
+                elif slope>0.1:
                     right_fit.append((slope,intersect))
                 else:
                     horizontal_fit.append((slope,intersect))
-                    print("RASKRSINCAAA!!!!!!!!!!")
+                    print("raskrsnica")
                     #print('raskrsnica koord ',x1,y1,x2,y2)
 
-            left_fit_average=np.average(left_fit,axis=0)
-            right_fit_average=np.average(right_fit,axis=0)
-            horizontal_fit_average=np.average(horizontal_fit,axis=0)
-            #print(horizontal_fit_average,' horizontal fit average')
 
-            if (horizontal_fit_average is not None):
-                self.horizontalLineSender.send(True)
-
-            left_line=self.make_coordinates(left_fit_average)
-            right_line=self.make_coordinates(right_fit_average)
-            #horizontal_line=make_coordinates(height,horizontal_fit_average)
-            
             lines=[]
-            if (left_line is not None):
-                #print('left ',left_line,' right ',right_line,'  hor') #ovde ne valja, treba da vraca i bar jednu listu ako je uhvatio bilo sta!!!!
-            # if horizontal_line is None:
-            #     horizontal_line = []
-                lines.append(left_line)
-            if (right_line is not None):
-                lines.append(right_line)
+            if (left_fit!=[]):
+                left_fit_average=np.average(left_fit,axis=0)
+                left_line=self.make_coordinates(left_fit_average)
+                if (left_line is not None):
+                    lines.append(left_line)
+
+            if (right_fit!=[]):
+                right_fit_average=np.average(right_fit,axis=0)
+                right_line=self.make_coordinates(right_fit_average)
+                if (right_line is not None):
+                    lines.append(right_line)
+
+
+            if (horizontal_fit!=[]):
+                horizontal_fit_average=np.average(horizontal_fit,axis=0)
+            #print(horizontal_fit_average,' horizontal fit average')
+                if (horizontal_fit_average is not None):
+                    self.horizontalLineSender.send(True)
+
+           
+            
+            #horizontal_line=make_coordinates(height,horizontal_fit_average)
             return lines
         else:
             return None
@@ -133,26 +137,30 @@ class threadLaneDetection(ThreadWithStop):
 #==============================================STEERING ANGLE===========================================================================###
 
     def get_steering_angle(self,lane_lines):
-        if len(lane_lines) == 2: 
-            left_x1, _, _, _ = lane_lines[0] 
-            right_x1, _, _, _ = lane_lines[1] 
-            x_offset = (left_x1 + right_x1) / 2 - self.width//2
-            y_offset = int(self.height / 2)  
+        if (lane_lines is not None):
+            if len(lane_lines) == 2: 
+                left_x1, _, _, _ = lane_lines[0] 
+                right_x1, _, _, _ = lane_lines[1] 
+                x_offset = (left_x1 + right_x1) / 2 - self.width//2
+                y_offset = int(self.height / 2)  
 
-        elif len(lane_lines) == 1: 
-            x1, _, x2, _ = lane_lines[0]
-            x_offset = x2 - x1
-            y_offset = int(self.height / 2)
+            elif len(lane_lines) == 1: 
+                x1, _, x2, _ = lane_lines[0]
+                x_offset = x2 - x1
+                y_offset = int(self.height / 2)
 
-        elif len(lane_lines) == 0:
-            x_offset = 0
-            y_offset = int(self.height / 2)
+            elif len(lane_lines) == 0:
+                x_offset = 0
+                y_offset = int(self.height / 2)
 
-        angle_to_mid_radian = math.atan(x_offset / y_offset)
-        angle_to_mid_deg = float(angle_to_mid_radian * 180.0 / math.pi)  
-        steering_angle = angle_to_mid_deg + 90 
+            angle_to_mid_radian = math.atan(x_offset / y_offset)
+            angle_to_mid_deg = float(angle_to_mid_radian * 180.0 / math.pi)  
+            steering_angle = angle_to_mid_deg + 90 
+            return steering_angle
+        else:
+            return -1
+      
 
-        return steering_angle
         
 
     def run(self):
@@ -171,16 +179,18 @@ class threadLaneDetection(ThreadWithStop):
                 lines=self.detect_lines(lane_image)
                 average_lines=self.average_slope_intersect(lines)
                 steering_angle=self.get_steering_angle(average_lines)
-                print(steering_angle,' sent steering angle')
+                #print(steering_angle,' sent steering angle')
                # steering_angle_out=round(self.PID.compute(steering_angle))
                # print(steering_angle_out)
-                self.laneKeepingSender.send(steering_angle)
-                if (average_lines is not None):
-                    line_image=self.display_lines(lane_image,average_lines)
-                    combo_image=cv2.addWeighted(lane_image,0.8,line_image,1,1)
-                plt.imshow(cv2.cvtColor(combo_image, cv2.COLOR_BGR2RGB))
-                plt.axis('off')  # Hide axes
-                plt.show()
+                if (steering_angle!=-1):
+                  #  print(steering_angle)
+                    self.laneKeepingSender.send(steering_angle)
+               # if (average_lines is not None):
+               #     line_image=self.display_lines(lane_image,average_lines)
+               #     combo_image=cv2.addWeighted(lane_image,0.8,line_image,1,1)
+               # plt.imshow(cv2.cvtColor(combo_image, cv2.COLOR_BGR2RGB))
+               #plt.axis('off')  # Hide axes
+               # plt.show()
                 
 
     def subscribe(self):

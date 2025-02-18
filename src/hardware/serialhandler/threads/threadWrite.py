@@ -28,27 +28,16 @@
 
 import json
 import time
-import threading
+
 
 from src.hardware.serialhandler.threads.messageconverter import MessageConverter
 from src.templates.threadwithstop import ThreadWithStop
+from src.control.PIDController import PIDController
 from src.utils.messages.allMessages import (
-    Klem,
-    Control,
-    SteerMotor,
-    SpeedMotor,
-    Brake,
-    ToggleBatteryLvl,
-    ToggleImuData,
-    ToggleInstant,
-    ToggleResourceMonitor,
-    SpeedMotor_c,
-    SteerMotor_c,
-    Brake_c,
-    Klem_c,
+    LaneKeeping,
 )
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
-from src.utils.messages.messageHandlerSender import messageHandlerSender
+
 
 
 class threadWrite(ThreadWithStop):
@@ -70,41 +59,21 @@ class threadWrite(ThreadWithStop):
         self.exampleFlag = example
         self.logger = logger
         self.debugger = debugger
-
+        self.start_time=time.time()
         self.running = False
         self.engineEnabled = False
         self.messageConverter = MessageConverter()
-        self.steerMotorSender = messageHandlerSender(self.queuesList, SteerMotor)
-        self.speedMotorSender = messageHandlerSender(self.queuesList, SpeedMotor)
         self.configPath = "src/utils/table_state.json"
+        self.PID=PIDController()
+        
 
         self.loadConfig("init")
         self.subscribe()
 
-        if example:
-            self.i = 0.0
-            self.j = -1.0
-            self.s = 0.0
-            self.example()
-
     def subscribe(self):
         """Subscribe function. In this function we make all the required subscribe to process gateway"""
 
-        self.klSubscriber = messageHandlerSubscriber(self.queuesList, Klem, "lastOnly", True)
-        self.controlSubscriber = messageHandlerSubscriber(self.queuesList, Control, "lastOnly", True)
-        self.steerMotorSubscriber = messageHandlerSubscriber(self.queuesList, SteerMotor, "lastOnly", True)
-        self.speedMotorSubscriber = messageHandlerSubscriber(self.queuesList, SpeedMotor, "lastOnly", True)
-        self.brakeSubscriber = messageHandlerSubscriber(self.queuesList, Brake, "lastOnly", True)
-        self.instantSubscriber = messageHandlerSubscriber(self.queuesList, ToggleInstant, "lastOnly", True)
-        self.batterySubscriber = messageHandlerSubscriber(self.queuesList, ToggleBatteryLvl, "lastOnly", True)
-        self.resourceMonitorSubscriber = messageHandlerSubscriber(self.queuesList, ToggleResourceMonitor, "lastOnly", True)
-        self.imuSubscriber = messageHandlerSubscriber(self.queuesList, ToggleImuData, "lastOnly", True)
-
-        self.klSubscriber_c = messageHandlerSubscriber(self.queuesList, Klem_c, "lastOnly", True)
-        self.steerMotorSubscriber_c = messageHandlerSubscriber(self.queuesList, SteerMotor_c, "lastOnly", True)
-        self.speedMotorSubscriber_c = messageHandlerSubscriber(self.queuesList, SpeedMotor_c, "lastOnly", True)
-        self.brakeSubscriber_c = messageHandlerSubscriber(self.queuesList, Brake_c, "lastOnly", True)
-
+        self.LaneKeepingSubscriber=messageHandlerSubscriber(self.queuesList, LaneKeeping, "lastOnly", True)
     # ==================================== SENDING =======================================
 
     def sendToSerial(self, msg):
@@ -140,102 +109,52 @@ class threadWrite(ThreadWithStop):
         
     # ===================================== RUN ==========================================
     def run(self):
-        """In this function we check if we got the enable engine signal. After we got it we will start getting messages from raspberry PI. It will transform them into NUCLEO commands and send them."""
 
+        self.running = True
+        print("primio naredbu!!!!!")
+        self.engineEnabled = True
+        command = {"action": "kl", "mode": 30}
+        self.sendToSerial(command)
+        time.sleep(5)
+
+        y=100
+        command = {"action": "speed", "speed": int(y)}            
+        self.sendToSerial(command)
+            
+
+        previous_angle=0
         while self._running:
-            try:
-                klRecv = self.klSubscriber_c.receive()
-                if klRecv is not None:
-                    print(klRecv, ' kl recv')
-                    if self.debugger:
-                        self.logger.info(klRecv)
-                    if klRecv == "30":
-                        self.running = True
-                        print("primio naredbu!!!!!!!!!!11")
-                        self.engineEnabled = True
-                        command = {"action": "kl", "mode": 30}
-                        self.sendToSerial(command)
-                        self.loadConfig("sensors")
-                    elif klRecv == "15":
-                        self.running = True
-                        self.engineEnabled = False
-                        command = {"action": "kl", "mode": 15}
-                        self.sendToSerial(command)
-                        self.loadConfig("sensors")
-                    elif klRecv == "0":
-                        self.running = False
-                        self.engineEnabled = False
-                        command = {"action": "kl", "mode": 0}
-                        self.sendToSerial(command)
+            time_=time.time()-self.start_time
+            if (time_)>60:
+                print(time_,' ,proteklo vreme')
+                self._running=False
+                x=0
+                command = {"action": "kl", "mode": int(x)}
+                self.sendToSerial(command)
+                time.sleep(0.2)
+                break
+            send=True
 
-                if self.running:
-                    if self.engineEnabled:
-                        brakeRecv = self.brakeSubscriber_c.receive()
-                        if brakeRecv is not None:
-                            if self.debugger:
-                                self.logger.info(brakeRecv)
-                                command = {"action": "kl", "mode": 0}
-                                self.sendToSerial(command)
-                                time.sleep(2)
-                            #command = {"action": "brake", "steerAngle": int(brakeRecv)}
-                            #self.sendToSerial(command)
+                 
+           
+            steeringangleRecv = self.LaneKeepingSubscriber.receive()
+            if steeringangleRecv is not None:
+                steeringangle=int(round(self.PID.compute(steeringangleRecv))*10)
+                if (abs(steeringangle-previous_angle)>50):
+                    command = {"action": "steer", "steerAngle": int(steeringangle)}
+                    self.sendToSerial(command)
+                    previous_angle=steeringangle
+            
+         
+        command = {"action": "speed", "speed": 0}
+        self.sendToSerial(command)
+        command = {"action": "kl", "mode": 0}
+        self.sendToSerial(command)
 
-                        speedRecv = self.speedMotorSubscriber_c.receive()
-                        if speedRecv is not None: 
-                            if self.debugger:
-                                self.logger.info(speedRecv)
-                            command = {"action": "speed", "speed": int(speedRecv)}
-                            self.sendToSerial(command)
 
-                        steerRecv = self.steerMotorSubscriber_c.receive()
-                        if steerRecv is not None:
-                            if self.debugger:
-                                self.logger.info(steerRecv) 
-                            command = {"action": "steer", "steerAngle": int(steerRecv)}
-                            self.sendToSerial(command)
+         
 
-                        controlRecv = self.controlSubscriber.receive()
-                        if controlRecv is not None:
-                            if self.debugger:
-                                self.logger.info(controlRecv) 
-                            command = {
-                                "action": "vcd",
-                                "time": int(controlRecv["Time"]),
-                                "speed": int(controlRecv["Speed"]),
-                                "steer": int(controlRecv["Steer"]),
-                            }
-                            self.sendToSerial(command)
-
-                    instantRecv = self.instantSubscriber.receive()
-                    if instantRecv is not None: 
-                        if self.debugger:
-                            self.logger.info(instantRecv) 
-                        command = {"action": "instant", "activate": int(instantRecv)}
-                        self.sendToSerial(command)
-
-                    batteryRecv = self.batterySubscriber.receive()
-                    if batteryRecv is not None: 
-                        if self.debugger:
-                            self.logger.info(batteryRecv)
-                        command = {"action": "battery", "activate": int(batteryRecv)}
-                        self.sendToSerial(command)
-
-                    resourceMonitorRecv = self.resourceMonitorSubscriber.receive()
-                    if resourceMonitorRecv is not None: 
-                        if self.debugger:
-                            self.logger.info(resourceMonitorRecv)
-                        command = {"action": "resourceMonitor", "activate": int(resourceMonitorRecv)}
-                        self.sendToSerial(command)
-
-                    imuRecv = self.imuSubscriber.receive()
-                    if imuRecv is not None: 
-                        if self.debugger:
-                            self.logger.info(imuRecv)
-                        command = {"action": "imu", "activate": int(imuRecv)}
-                        self.sendToSerial(command)
-
-            except Exception as e:
-                print(e)
+            
 
     # ==================================== START =========================================
     def start(self):
@@ -251,63 +170,3 @@ class threadWrite(ThreadWithStop):
         time.sleep(2)
         super(threadWrite, self).stop()
 
-    # ================================== EXAMPLE =========================================
-    def example(self):
-        """This function simulte the movement of the car."""
-
-        if self.exampleFlag:
-            self.signalRunningSender.send({"Type": "Run", "value": True})
-            self.speedMotorSender.send({"Type": "Speed", "value": self.s})
-            self.steerMotorSender.send({"Type": "Steer", "value": self.i})
-            self.i += self.j
-            if self.i >= 21.0:
-                self.i = 21.0
-                self.s = self.i / 7
-                self.j *= -1
-            if self.i <= -21.0:
-                self.i = -21.0
-                self.s = self.i / 7
-                self.j *= -1.0
-            threading.Timer(0.01, self.example).start()
-
-"""
-__init__:
-    queuesList, serialCom, logFile, exampleFlag, logger, debbuger, running=False, engineEnabled=False
-    messageConverter=MessageConverter(),
-
-    self.steerMotorSender = messageHandlerSender(self.queuesList, SteerMotor) -> podaci koje se salju na upravljanje
-    self.speedMotorSender = messageHandlerSender(self.queuesList, SpeedMotor)
-    self.configPath = "src/utils/table_state.json"
-
-    self.loadConfig("init") 
-    self.subscribe()
-
-subscribe:
-        self.klSubscriber = messageHandlerSubscriber(self.queuesList, Klem, "lastOnly", True)
-        self.controlSubscriber = messageHandlerSubscriber(self.queuesList, Control, "lastOnly", True)
-        self.steerMotorSubscriber = messageHandlerSubscriber(self.queuesList, SteerMotor, "lastOnly", True)
-        self.speedMotorSubscriber = messageHandlerSubscriber(self.queuesList, SpeedMotor, "lastOnly", True)
-        self.brakeSubscriber = messageHandlerSubscriber(self.queuesList, Brake, "lastOnly", True)
-        self.instantSubscriber = messageHandlerSubscriber(self.queuesList, ToggleInstant, "lastOnly", True)
-        self.batterySubscriber = messageHandlerSubscriber(self.queuesList, ToggleBatteryLvl, "lastOnly", True)
-        self.resourceMonitorSubscriber = messageHandlerSubscriber(self.queuesList, ToggleResourceMonitor, "lastOnly", True)
-        self.imuSubscriber = messageHandlerSubscriber(self.queuesList, ToggleImuData, "lastOnly", True)
-
-sendToSerial:
-    ->salje podatke na serial port
-    ->konvertuje je prvo kako treba uz pomoc messageConverter-a
-    ->salje na serialCom
-        
-loadConfig:
-    ->ucita podatke iz datotke table_staate.json
-    ->ako prvi put ucitava, salje nucleo podatke o kapacitetu baterije
-    ->ako nije, onda za ostale "senzore" salje podatke nucleo-u u zavisnosti da li oni treba da budu aktivirani, ili ne (prve 4 vrednosti u tabeli)
-    ->prvi put se poziva prilikom inicijalizacije, a drugi put u okviru run funkcije ako je kl=30 ili kl=15
-
-run:
-    ->30 - pali se i motor i senzori
-    ->15 - pale se samo senzori
-    ->0 - ne pali se nista
-    ->ako je motor ukljucen, nucleo je moguce slati razlicite komande
-        
-"""
