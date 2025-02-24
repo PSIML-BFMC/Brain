@@ -90,8 +90,9 @@ class threadLaneDetection(ThreadWithStop):
                 elif slope>0.1:
                     right_fit.append((slope,intersect))
                 else:
-                    horizontal_fit.append((slope,intersect))
-                    print("raskrsnica")
+                    y1_=480-y1
+                    y2_=480-y2
+                    horizontal_fit.append((y1_+y2_)//2)
                     #print('raskrsnica koord ',x1,y1,x2,y2)
 
 
@@ -109,11 +110,12 @@ class threadLaneDetection(ThreadWithStop):
                     lines.append(right_line)
 
 
-            if (horizontal_fit!=[]):
-                horizontal_fit_average=np.average(horizontal_fit,axis=0)
+            if (horizontal_fit!=[] and len(horizontal_fit)>=2):
+                print("raskrsnica")
+             #   horizontal_fit_average=np.average(horizontal_fit,axis=0)
             #print(horizontal_fit_average,' horizontal fit average')
-                if (horizontal_fit_average is not None):
-                    self.horizontalLineSender.send(True)
+                horizontal_avg = round(sum(horizontal_fit) / len(horizontal_fit))
+                self.horizontalLineSender.send(float(horizontal_avg))
 
            
             

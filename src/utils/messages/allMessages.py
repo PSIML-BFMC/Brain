@@ -53,6 +53,12 @@ class Signal(Enum):
     msgID = 4
     msgType = "str"
 
+class RecognisedSign(Enum):
+    Queue = "Warning"
+    Owner = "threadCamera"
+    msgID = 5
+    msgType = "str"
+
 ################################# laneKeeping ###############################################
 
 class LaneKeeping(Enum):
@@ -62,10 +68,10 @@ class LaneKeeping(Enum):
     msgType = "float" #steering angle is sent!!!
 
 class HorizontalLine(Enum):
-    Queue = "Warning"
+    Queue = "Critical"
     Owner = "threadLaneDetection"
     msgID = 2
-    msgType = "bool"
+    msgType = "float"
 
 ################################# processCarsAndSemaphores ##################################
 class Cars(Enum):
@@ -254,12 +260,7 @@ class WarningSignal(Enum):
 
 ### It will have this format: {"WarningName":"name1", "WarningID": 1}
 
-###################### From processSignRecognition ############################
-class RecognisedSign(Enum):
-    Queue = "Warning"
-    Owner = "threadSignDetection"
-    msgID = 1
-    msgType = "str"
+
 
 ##################### From procesControl #####################################
 

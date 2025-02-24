@@ -33,8 +33,11 @@ import time
 from src.hardware.serialhandler.threads.messageconverter import MessageConverter
 from src.templates.threadwithstop import ThreadWithStop
 from src.control.PIDController import PIDController
+from src.control.states import States
 from src.utils.messages.allMessages import (
     LaneKeeping,
+    RecognisedSign,
+    HorizontalLine,
 )
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
 
@@ -64,8 +67,12 @@ class threadWrite(ThreadWithStop):
         self.engineEnabled = False
         self.messageConverter = MessageConverter()
         self.configPath = "src/utils/table_state.json"
+
+        #initializing pid controller
         self.PID=PIDController()
-        
+
+        #adding states
+        self.current_state=States.LANE_KEEPING
 
         self.loadConfig("init")
         self.subscribe()
@@ -74,6 +81,8 @@ class threadWrite(ThreadWithStop):
         """Subscribe function. In this function we make all the required subscribe to process gateway"""
 
         self.LaneKeepingSubscriber=messageHandlerSubscriber(self.queuesList, LaneKeeping, "lastOnly", True)
+        self.SignSubscriber=messageHandlerSubscriber(self.queuesList,RecognisedSign,"lastOnly",True)
+        self.HorizontalLineSubsrciber=messageHandlerSubscriber(self.queuesList,HorizontalLine,"lastOnly",True)
     # ==================================== SENDING =======================================
 
     def sendToSerial(self, msg):
@@ -107,8 +116,8 @@ class threadWrite(ThreadWithStop):
         else :
             return 0
         
-    # ===================================== RUN ==========================================
-    def run(self):
+     # ===================================== RUN ==========================================
+    """ def run(self):
 
         self.running = True
         print("primio naredbu!!!!!")
@@ -150,11 +159,214 @@ class threadWrite(ThreadWithStop):
         self.sendToSerial(command)
         command = {"action": "kl", "mode": 0}
         self.sendToSerial(command)
+        """
 
+    #=============================== STATE MACHINE LOGIC =================================     
 
-         
+    def run(self):
+
+        self.running = True
+        print("primio naredbu!!!!!")
+        self.engineEnabled = True
+        command = {"action": "kl", "mode": 30}
+        self.sendToSerial(command)
+        time.sleep(10)
+
+        y=100
+        command = {"action": "speed", "speed": int(y)}            
+        self.sendToSerial(command)
+
+        y=100
+        command = {"action": "speed", "speed": int(y)}            
+        self.sendToSerial(command)
+
+        y=100
+        command = {"action": "speed", "speed": int(y)}            
+        self.sendToSerial(command)
+            
+
+        previous_angle=0
+        while self._running:
+            time_=time.time()-self.start_time
+            if (time_)>60:
+                print(time_,' ,proteklo vreme')
+                self._running=False
+                x=0
+                command = {"action": "kl", "mode": int(x)}
+                self.sendToSerial(command)
+                time.sleep(0.2)
+                break
 
             
+            steeringangleRecv = self.LaneKeepingSubscriber.receive()
+            if (self.current_state==States.LANE_KEEPING):
+                if steeringangleRecv is not None:
+                    steeringangle=int(round(self.PID.compute(steeringangleRecv))*10)
+                    if (abs(steeringangle-previous_angle)>50):
+                        command = {"action": "steer", "steerAngle": int(steeringangle)}
+                        self.sendToSerial(command)
+                        previous_angle=steeringangle
+            
+            recognisedsignRecv = self.SignSubscriber.receive()
+            if (recognisedsignRecv is not None):
+                if (recognisedsignRecv=='Stop sign'): #dodaj uslovee dodatne!!!!!!
+                    self.transition_to(States.STOP_INTERSECTION)
+                elif (recognisedsignRecv=='Parking sign'):
+                    self.transition_to(States.PARKING)
+                elif (recognisedsignRecv=='Priority sign'):
+                    self.transition_to(States.PRIORITY_INTERSECTION)
+                elif (recognisedsignRecv=='Crosswalk sign'):
+                    self.transition_to(States.CROSSWALK)
+                elif (recognisedsignRecv=='Highway entrance sign'):
+                    self.transition_to(States.HIGHWAY)
+                elif (recognisedsignRecv=='Highway exit sign'):
+                    self.transition_to(States.HIGHWAY_EXIT)
+                elif (recognisedsignRecv=='Round-about sign'):
+                    self.transition_to(States.ROUND_ABOUT)
+                elif (recognisedsignRecv=='One way road sign'):
+                    self.transition_to(States.LANE_KEEPING)
+                elif (recognisedsignRecv=='No-entry road sign'):
+                    self.transition_to(States.LANE_KEEPING) #mozda ovo bude trebalo da se menja idk
+
+         
+        command = {"action": "speed", "speed": 0}
+        self.sendToSerial(command)
+        command = {"action": "kl", "mode": 0}
+        self.sendToSerial(command)    
+
+
+
+    def transition_to(self, new_state):
+        self.current_state = new_state
+        if (self.current_state!=States.LANE_KEEPING):
+            self.enter_state()
+
+    def enter_state(self):
+        if self.current_state == States.CROSSWALK:
+            self.handle_crosswalk()
+        elif self.current_state == States.STOP_INTERSECTION:
+            self.handle_stop_intersection()
+        elif self.current_state == States.PRIORITY_INTERSECTION:
+            self.handle_priority_intersection()
+        elif self.current_state == States.HIGHWAY:
+            self.handle_highway()
+        elif self.current_state == States.PARKING:
+            self.handle_parking()
+        elif self.current_state == States.HIGHWAY_EXIT:
+            self.handle_highway_exit()
+        elif self.current_state ==States.ROUND_ABOUT:
+            self.handle_round_about()
+
+    def handle_lane_following(self):
+        steeringangleRecv = self.LaneKeepingSubscriber.receive()
+        if steeringangleRecv is not None:
+            steeringangle=int(round(self.PID.compute(steeringangleRecv))*10)
+            if (abs(steeringangle-previous_angle)>50):
+                command = {"action": "steer", "steerAngle": int(steeringangle)}
+                self.sendToSerial(command)
+                previous_angle=steeringangle
+    
+    def handle_crosswalk(self):
+        print("Car is stopping for pedestrians...")
+        print("slowing down...")
+        
+        time.sleep(0.02)
+        y=50
+        command = {"action": "speed", "speed": int(y)}            
+        self.sendToSerial(command)
+        time.sleep(0.01)
+        y=50
+        command = {"action": "speed", "speed": int(y)}            
+        self.sendToSerial(command)
+        start_time=time.time()
+        previous_angle=0   
+        while (True):
+            steeringangleRecv = self.LaneKeepingSubscriber.receive()
+            if steeringangleRecv is not None:
+                steeringangle=int(round(self.PID.compute(steeringangleRecv))*10)
+                if (abs(steeringangle-previous_angle)>50):
+                    command = {"action": "steer", "steerAngle": int(steeringangle)}
+                    self.sendToSerial(command)
+                    previous_angle=steeringangle
+
+            current_time=time.time()
+            if (current_time-start_time>7):
+                time.sleep(0.01)
+                y=100
+                command = {"action": "speed", "speed": int(y)}            
+                self.sendToSerial(command)
+                break
+
+        y=100
+        command = {"action": "speed", "speed": int(y)}            
+        self.sendToSerial(command)
+        self.SignSubscriber.receive()
+        
+        self.transition_to(States.LANE_KEEPING)
+    
+    def handle_stop_intersection(self):
+        print("Car is stopping at an intersection...")
+        previous_angle=0
+        while (True): 
+            steeringangleRecv = self.LaneKeepingSubscriber.receive()
+            if steeringangleRecv is not None:
+                steeringangle=int(round(self.PID.compute(steeringangleRecv))*10)
+                if (abs(steeringangle-previous_angle)>50):
+                    command = {"action": "steer", "steerAngle": int(steeringangle)}
+                    self.sendToSerial(command)
+                    previous_angle=steeringangle
+
+            horizontallineRecv=self.HorizontalLineSubsrciber.receive()
+            if (horizontallineRecv is not None and horizontallineRecv<100.0):
+                print("stopping...")
+                break
+        time.sleep(0.01)
+        y=0
+        #command = {"action": "speed", "speed": int(y)}            
+        #self.sendToSerial(command)
+        command = {"action": "brake", "steerAngle": int(y)}
+        self.sendToSerial(command)
+        
+        self.SignSubscriber.receive()
+        time.sleep(3)
+        y=100
+        command = {"action": "speed", "speed": int(y)}            
+        self.sendToSerial(command)
+        y=100
+        command = {"action": "speed", "speed": int(y)}            
+        self.sendToSerial(command)
+        y=100
+        command = {"action": "speed", "speed": int(y)}            
+        self.sendToSerial(command)
+        self.transition_to(States.LANE_KEEPING)
+    
+    def handle_priority_intersection(self):
+        print("Car is checking for priority and moving accordingly...")
+        self.transition_to(States.LANE_KEEPING)
+    
+    def handle_highway(self):
+        print("Car is on the highway, adjusting speed...")
+        time.sleep(0.01)
+        y=200
+        command = {"action": "speed", "speed": int(y)}  
+        self.sendToSerial(command)
+        self.transition_to(States.LANE_KEEPING)
+    
+    def handle_parking(self):
+        print("Car is parking...")
+        self.transition_to(States.LANE_KEEPING)
+    
+    def handle_highway_exit(self):
+        print("Car is leaving the highway...")
+        time.sleep(0.01)
+        y=100
+        command = {"action": "speed", "speed": int(y)}  
+        self.sendToSerial(command)
+        self.transition_to(States.LANE_KEEPING)
+
+    def handle_round_about(self):
+        print("Car has entered the roundabout...")
+
 
     # ==================================== START =========================================
     def start(self):

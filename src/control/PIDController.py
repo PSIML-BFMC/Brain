@@ -14,7 +14,7 @@ class PIDController:
 
     def compute(self, steering_angle):
           dt=time.time() - self.previous_time
-          error = steering_angle - self.setangle
+          error = steering_angle - self.setangle 
      
           P_out = self.Kp * error
      
@@ -35,6 +35,11 @@ class PIDController:
           self.previous_time=time.time()
           
           return output
+    
+    def reset_pid(self,Kp_,Kd_,Ki_):
+         self.Kp=Kp_
+         self.Kd=Kd_
+         self.Ki=Ki_
 
 
     

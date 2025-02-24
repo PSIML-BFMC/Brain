@@ -40,6 +40,7 @@ from src.utils.messages.allMessages import (
     Record,
     Brightness,
     Contrast,
+    RecognisedSign,
 )
 from src.utils.messages.messageHandlerSender import messageHandlerSender
 from src.utils.messages.messageHandlerSubscriber import messageHandlerSubscriber
@@ -71,6 +72,7 @@ class threadCamera(ThreadWithStop):
         self.recordingSender = messageHandlerSender(self.queuesList, Recording)
         self.mainCameraSender = messageHandlerSender(self.queuesList, mainCamera)
         self.serialCameraSender = messageHandlerSender(self.queuesList, serialCamera)
+        self.SignSender = messageHandlerSender(self.queuesList,RecognisedSign)
 
         self.subscribe()
         self._init_camera()
@@ -168,8 +170,7 @@ class threadCamera(ThreadWithStop):
 
                 # Start of Sign Detection
                 top_right_crop = self.gamma_correction(serialRequest[0:320, 640 - 320:])
-                outputs = ncnn_inference(top_right_crop, conf=0.5)
-               
+                outputs = ncnn_inference(top_right_crop, conf=0.8)
                 detection_frame = draw_detections(top_right_crop, outputs)
                 serialRequest[0:320, 640 - 320:] = detection_frame
                 # End of Sign Detection
@@ -182,6 +183,10 @@ class threadCamera(ThreadWithStop):
 
                 self.mainCameraSender.send(mainEncodedImageData)
                 self.serialCameraSender.send(serialEncodedImageData)
+                #send information about detected sign
+                if (outputs!=[]):
+                    sign=outputs[0].class_name
+                    self.SignSender.send(sign)
 
             send = not send
 
