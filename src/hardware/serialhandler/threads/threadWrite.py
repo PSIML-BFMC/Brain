@@ -172,15 +172,15 @@ class threadWrite(ThreadWithStop):
         self.sendToSerial(command)
         time.sleep(10)
 
-        y=100
+        y=200
         command = {"action": "speed", "speed": int(y)}            
         self.sendToSerial(command)
 
-        y=100
+        y=200
         command = {"action": "speed", "speed": int(y)}            
         self.sendToSerial(command)
 
-        y=100
+        y=200
         command = {"action": "speed", "speed": int(y)}            
         self.sendToSerial(command)
             
@@ -269,17 +269,9 @@ class threadWrite(ThreadWithStop):
     def handle_crosswalk(self):
         print("Car is stopping for pedestrians...")
         print("slowing down...")
-        
-        time.sleep(0.02)
-        y=50
-        command = {"action": "speed", "speed": int(y)}            
-        self.sendToSerial(command)
-        time.sleep(0.01)
-        y=50
-        command = {"action": "speed", "speed": int(y)}            
-        self.sendToSerial(command)
-        start_time=time.time()
+        start_time=0
         previous_angle=0   
+        detected_horizontal=False
         while (True):
             steeringangleRecv = self.LaneKeepingSubscriber.receive()
             if steeringangleRecv is not None:
@@ -289,15 +281,29 @@ class threadWrite(ThreadWithStop):
                     self.sendToSerial(command)
                     previous_angle=steeringangle
 
-            current_time=time.time()
-            if (current_time-start_time>7):
-                time.sleep(0.01)
-                y=100
-                command = {"action": "speed", "speed": int(y)}            
-                self.sendToSerial(command)
-                break
+            if (not detected_horizontal):
+                horizontallineRecv=self.HorizontalLineSubsrciber.receive()
+                if ((horizontallineRecv is not None) and (horizontallineRecv<150.0)):
+                    time.sleep(0.02)
+                    y=50
+                    command = {"action": "speed", "speed": int(y)}            
+                    self.sendToSerial(command)
+                    time.sleep(0.01)
+                    y=50
+                    command = {"action": "speed", "speed": int(y)}            
+                    self.sendToSerial(command)
+                    start_time=time.time()
+                    detected_horizontal=True
+            else:
+                current_time=time.time()
+                if (current_time-start_time>7):
+                    time.sleep(0.01)
+                    y=200
+                    command = {"action": "speed", "speed": int(y)}            
+                    self.sendToSerial(command)
+                    break
 
-        y=100
+        y=200
         command = {"action": "speed", "speed": int(y)}            
         self.sendToSerial(command)
         self.SignSubscriber.receive()
